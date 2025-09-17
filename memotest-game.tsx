@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { RotateCcw, Trophy } from "lucide-react"
 import Image from 'next/image'
-import arboria from '@/public/logo-arboria.jpg'
-import ciudad from '@/public/logo-ciudad.jpg'
-import clash from '@/public/logo-clash.jpg'
-import datic from '@/public/logo-datic.jpg'
-import firmia from '@/public/logo-firmia.jpeg'
-import locativa from '@/public/logo-locativa.jpg'
-import rosental from '@/public/logo-rosental.jpg'
-import vida from '@/public/logo-vida.jpg'
-import cabeceraRosental from '@/public/logo-cabecera-rosental.png'
+import homeLogo from '@/public/home.png'
+import llaveLogo from '@/public/llave.png'
+import rayoLogo from '@/public/rayo.png'
+import tazaLogo from '@/public/taza.png'
+import yendoLogo from '@/public/yendo.png'
+import primerPuestoLogo from '@/public/1puesto.png'
+import globoLogo from '@/public/globo.png'
+import hogarLogo from '@/public/hogar.png'
+import locativaLogo from '@/public/logoscuadrados.png'
+import cabeceraLocativaRosental from '@/public/logoppal.png'
 import { useRouter } from "next/navigation"
 import { NameModal } from "./components/NameModal"
 import Link from 'next/link'
@@ -26,8 +27,10 @@ interface GameCard {
   isMatched: boolean
 }
 
-const getCardImageSrc = (imageId: number): string => {
-  const images = [arboria, ciudad, clash, datic, firmia, locativa, rosental, vida]
+import type { StaticImageData } from "next/image"
+
+const getCardImageSrc = (imageId: number): StaticImageData => {
+  const images = [homeLogo, llaveLogo, rayoLogo, tazaLogo, yendoLogo, primerPuestoLogo, globoLogo, hogarLogo]
   return images[imageId - 1] || images[0]
 }
 
@@ -49,6 +52,7 @@ export default function Component() {
   const [gameStarted, setGameStarted] = useState(false)
   const [gameFailed, setGameFailed] = useState(false)
   const [showNameModal, setShowNameModal] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
   // Initialize game
@@ -111,12 +115,24 @@ export default function Component() {
   }, [gameStarted, timeLeft, gameCompleted, gameFailed])
 
   const handleSaveName = async (firstName: string, lastName: string) => {
-    await fetch('/api/scores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, moves, time: timeLimit - timeLeft })
-    })
-    setShowNameModal(false)
+    if (isSubmitting) return // evita múltiples clics
+
+    try {
+      setIsSubmitting(true)
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          moves,
+          time: timeLimit - timeLeft,
+        }),
+      })
+      setShowNameModal(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Handle card click
@@ -177,17 +193,19 @@ export default function Component() {
   }, [matchedPairs])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-[#0B2558] to-black">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-[#004177] to-black">
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-4">
           <Image
-            src={cabeceraRosental}
-            width={400}
-            height={180}
+            src={cabeceraLocativaRosental}
+            width={600}
+            height={10}
             priority={true}
-            className="mb-8 mx-auto"
+            className="my-8 mx-auto"
+            alt="Locativa - Rosental"
           />
+          <p className="text-gray-100 font-bold text-lg mb-2">Somos la garantía que necesitás para alquilar.</p>
           <p className="text-gray-100">¡Encontrá todos los pares iguales!</p>
         </div>
 
@@ -243,12 +261,18 @@ export default function Component() {
                       width={125.5}
                       height={125.5}
                       priority={true}
+                      alt="Card Image"
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-slate-400 to-slate-600 rounded-md flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-                    <div className="w-8 h-8 bg-white/20 rounded-full relative z-10"></div>
+                  <div className="w-full h-full rounded-md flex items-center justify-center relative overflow-hidden">
+                    <Image
+                      src={locativaLogo}
+                      width={125.5}
+                      height={125.5}
+                      priority={true}
+                      alt="Logo Locativa"
+                    />
                   </div>
                 )}
               </div>
@@ -284,7 +308,11 @@ export default function Component() {
           </div>
         )}
       </div>
-      <NameModal open={showNameModal} onSubmit={handleSaveName} />
+      <NameModal
+        open={showNameModal}
+        onSubmit={handleSaveName}
+        onClose={() => setShowNameModal(false)}
+      />
     </div>
   )
 }
