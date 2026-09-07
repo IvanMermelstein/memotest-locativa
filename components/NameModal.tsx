@@ -1,14 +1,16 @@
 import { useState } from 'react'
+import { Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 interface NameModalProps {
   open: boolean
+  moves: number
   onSubmit: (firstName: string, lastName: string) => Promise<void> | void
   onClose: () => void
 }
 
-export function NameModal({ open, onSubmit, onClose }: NameModalProps) {
+export function NameModal({ open, moves, onSubmit, onClose }: NameModalProps) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -27,6 +29,11 @@ export function NameModal({ open, onSubmit, onClose }: NameModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
+        <div className="text-center">
+          <Trophy className="w-14 h-14 text-yellow-500 mx-auto mb-2" />
+          <h2 className="text-xl font-bold text-green-600">¡Felicitaciones! 🎉</h2>
+          <p className="text-gray-600 text-sm mt-1">Completaste el juego en {moves} movimientos!</p>
+        </div>
         <DialogHeader>
           <DialogTitle>Ingresá tu nombre</DialogTitle>
         </DialogHeader>
