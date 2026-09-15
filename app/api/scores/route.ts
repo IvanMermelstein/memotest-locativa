@@ -39,12 +39,12 @@ const RANKING_CACHE_TTL_MS = 15_000
 let rankingCache: { data: unknown[]; expiresAt: number } | null = null
 
 export async function POST(req: Request) {
-  const { firstName, lastName, moves, time } = await req.json()
+  const { firstName, lastName, phone, moves, time, valid } = await req.json()
   if (!firstName || !lastName || moves == null || time == null)
     return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
 
   const sheet = await initDoc()
-  await sheet.addRow({ firstName, lastName, moves, time, createdAt: new Date().toISOString() })
+  await sheet.addRow({ firstName, lastName, phone, moves, time, valid, createdAt: new Date().toISOString() })
   rankingCache = null
   return NextResponse.json({ success: true }, { status: 201 })
 }
@@ -56,16 +56,22 @@ export async function GET() {
 
   const sheet = await initDoc()
   const rows = await sheet.getRows()
-  const scores = rows.map(row => {
-    const rec = row.toObject() as Record<string, string>
-    return {
-      firstName: rec.firstName,
-      lastName: rec.lastName,
-      moves: Number(rec.moves),
-      time: Number(rec.time),
-      createdAt: rec.createdAt
-    }
-  })
+  const scores = rows
+    // Una partida perdida (tiempo agotado) se guarda igual, pero queda
+    // marcada como no válida (columna "valid") y no entra al ranking. Las
+    // filas viejas (sin esa columna todavía) se siguen contando como antes.
+    .filter(row => String((row.toObject() as Record<string, string>).valid).toLowerCase() !== 'false')
+    .map(row => {
+      const rec = row.toObject() as Record<string, string>
+      return {
+        firstName: rec.firstName,
+        lastName: rec.lastName,
+        phone: rec.phone,
+        moves: Number(rec.moves),
+        time: Number(rec.time),
+        createdAt: rec.createdAt
+      }
+    })
   scores.sort((a, b) => a.moves - b.moves || a.time - b.time)
   rankingCache = { data: scores, expiresAt: Date.now() + RANKING_CACHE_TTL_MS }
   return NextResponse.json(scores)

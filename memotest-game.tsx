@@ -17,6 +17,7 @@ import cabeceraLocativa from '@/public/logo-superior-memotest.png'
 import { useRouter } from "next/navigation"
 import { NameModal } from "./components/NameModal"
 import { GameFailedModal } from "./components/GameFailedModal"
+import { PreGameModal } from "./components/PreGameModal"
 import Link from 'next/link'
 
 
@@ -54,14 +55,15 @@ export default function Component() {
   const [gameFailed, setGameFailed] = useState(false)
   const [showNameModal, setShowNameModal] = useState(false)
   const [showGameFailedModal, setShowGameFailedModal] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPreGameModal, setShowPreGameModal] = useState(false)
+  const [playerInfo, setPlayerInfo] = useState<{ firstName: string; lastName: string; phone: string } | null>(null)
   const router = useRouter()
 
   // Latest-value ref so handleCardClick can stay referentially stable
   // (required for MemoCard's React.memo to actually skip re-renders)
   // while still reading up-to-date state.
-  const latestRef = useRef({ cards, flippedCards, isChecking, gameFailed, gameStarted })
-  latestRef.current = { cards, flippedCards, isChecking, gameFailed, gameStarted }
+  const latestRef = useRef({ cards, flippedCards, isChecking, gameFailed, gameStarted, playerInfo })
+  latestRef.current = { cards, flippedCards, isChecking, gameFailed, gameStarted, playerInfo }
 
   // Initialize game
   const initializeGame = (newTimeLimit = 60) => {
@@ -90,22 +92,72 @@ export default function Component() {
     setGameStarted(false)
   }
 
-  // Initialize game on component mount
+  // Arma el tablero al cargar la página, pero queda inerte (ver
+  // handleCardClick) hasta que el jugador toque Reset y complete el popup
+  // de datos — así el ranking queda accesible sin que nada lo bloquee.
   useEffect(() => {
     initializeGame()
   }, [])
 
+  // Guarda el puntaje sin pedir confirmación — el dato de contacto ya se
+  // levantó en el popup previo, así que apenas termina la partida (gane o
+  // pierda) se manda solo, se vea o no se vea el popup de resultado. Una
+  // partida perdida (se acabó el tiempo) se guarda igual, pero marcada como
+  // no válida para que no cuente en el ranking.
+  const saveScore = (finalMoves: number, finalTime: number, valid: boolean) => {
+    if (!playerInfo) return
+    fetch('/api/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firstName: playerInfo.firstName,
+        lastName: playerInfo.lastName,
+        phone: playerInfo.phone,
+        moves: finalMoves,
+        time: finalTime,
+        valid,
+      }),
+    })
+  }
+
   useEffect(() => {
     if (gameCompleted) {
+      saveScore(moves, timeLimit - timeLeft, true)
       setShowNameModal(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameCompleted])
 
   useEffect(() => {
     if (gameFailed) {
+      saveScore(moves, timeLimit - timeLeft, false)
       setShowGameFailedModal(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameFailed])
+
+  // Una partida nueva (botón Comenzar/Reset) vuelve a pedir
+  // nombre/apellido/teléfono, ya que es un intento voluntario y distinto.
+  const requestNewGame = () => {
+    setShowPreGameModal(true)
+  }
+
+  const handlePreGameSubmit = (firstName: string, lastName: string, phone: string) => {
+    setPlayerInfo({ firstName, lastName, phone })
+    setShowPreGameModal(false)
+    initializeGame(timeLimit)
+  }
+
+  // Al cerrar el popup de resultado (con "OK") se vuelve a la pantalla
+  // principal en reposo, igual que si se acabara de abrir la página — sin
+  // volver a mostrar ningún popup ni dejar jugar hasta que el jugador
+  // toque Comenzar/Reset por su cuenta.
+  const handleGameOverClose = () => {
+    setShowNameModal(false)
+    setShowGameFailedModal(false)
+    setPlayerInfo(null)
+    initializeGame()
+  }
 
   // Timer effect
   useEffect(() => {
@@ -129,34 +181,13 @@ export default function Component() {
     }
   }, [gameStarted, timeLeft, gameCompleted, gameFailed])
 
-  const handleSaveName = async (firstName: string, lastName: string) => {
-    if (isSubmitting) return // evita múltiples clics
-
-    try {
-      setIsSubmitting(true)
-      await fetch('/api/scores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          moves,
-          time: timeLimit - timeLeft,
-        }),
-      })
-      setShowNameModal(false)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   // Handle card click.
   // Reads state from `latestRef` instead of closuring it directly so this
   // function keeps a stable identity across renders — required for
   // MemoCard's React.memo to skip re-rendering unaffected cards.
   const handleCardClick = useCallback((cardId: number) => {
-    const { cards, flippedCards, isChecking, gameFailed, gameStarted } = latestRef.current
-    if (isChecking || flippedCards.length >= 2 || gameFailed) return
+    const { cards, flippedCards, isChecking, gameFailed, gameStarted, playerInfo } = latestRef.current
+    if (!playerInfo || isChecking || flippedCards.length >= 2 || gameFailed) return
 
     // Start timer on first card click
     if (!gameStarted) {
@@ -238,7 +269,7 @@ export default function Component() {
               del logo. En vez de agrandar el cuadrado entero, recortamos ese margen con
               un contenedor más bajo que ancho + object-cover, para que se vea como un
               banner en vez de un cuadrado. */}
-          <div className="relative w-[500px] h-[263px] mx-auto my-4 overflow-hidden">
+          <div className="relative w-full max-w-[500px] aspect-[500/263] mx-auto my-4 overflow-hidden">
             <Image
               src={cabeceraLocativa}
               fill
@@ -267,9 +298,9 @@ export default function Component() {
             <div className="text-2xl font-bold text-green-600">{matchedPairs}/8</div>
             <div className="text-sm text-gray-600">Pares</div>
           </div>
-          <Button onClick={() => initializeGame(timeLimit)} variant="outline" size="sm" className="gap-2">
+          <Button onClick={requestNewGame} variant="outline" size="sm" className="gap-2">
             <RotateCcw className="w-4 h-4" />
-            Reset
+            {playerInfo ? "Reset" : "Comenzar"}
           </Button>
           <Link href="/ranking">
             <Button variant="outline" size="sm" className="gap-2">
@@ -297,19 +328,15 @@ export default function Component() {
       <NameModal
         open={showNameModal}
         moves={moves}
-        onSubmit={handleSaveName}
-        onClose={() => setShowNameModal(false)}
+        onClose={handleGameOverClose}
       />
       <GameFailedModal
         open={showGameFailedModal}
         matchedPairs={matchedPairs}
         moves={moves}
-        onRetry={() => {
-          setShowGameFailedModal(false)
-          initializeGame(timeLimit)
-        }}
-        onClose={() => setShowGameFailedModal(false)}
+        onClose={handleGameOverClose}
       />
+      <PreGameModal open={showPreGameModal} onSubmit={handlePreGameSubmit} />
     </div>
   )
 }
