@@ -269,7 +269,10 @@ export default function Component() {
               del logo. En vez de agrandar el cuadrado entero, recortamos ese margen con
               un contenedor más bajo que ancho + object-cover, para que se vea como un
               banner en vez de un cuadrado. */}
-          <div className="relative w-full max-w-[500px] aspect-[500/263] mx-auto my-4 overflow-hidden">
+          <div className="relative w-full max-w-[500px] mx-auto my-4 overflow-hidden">
+            {/* Espaciador que fuerza el alto según el ancho (relación 500:263)
+                sin depender de aspect-ratio, no soportado en navegadores/tablets viejos */}
+            <div className="pt-[52.6%]" />
             <Image
               src={cabeceraLocativa}
               fill

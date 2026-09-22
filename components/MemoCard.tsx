@@ -26,14 +26,19 @@ function MemoCardComponent({ id, imageSrc, isFlipped, isMatched, matchState, onC
   return (
     <Card
       className={`
-        aspect-square cursor-pointer transition-transform duration-300 will-change-transform hover:scale-105 [perspective:1000px]
+        relative cursor-pointer transition-transform duration-300 will-change-transform hover:scale-105 [perspective:1000px]
         ${feedbackClass}
         ${showFace ? "shadow-lg" : "shadow-md hover:shadow-lg"}
       `}
       onClick={() => onClick(id)}
     >
+      {/* Espaciador que fuerza el alto = ancho sin depender de aspect-ratio
+          (CSS moderno que algunos navegadores/tablets viejos no soportan;
+          sin esto la carta queda con 0px de alto en esos dispositivos, ya
+          que todo su contenido está posicionado en absolute) */}
+      <div className="pt-[100%]" />
       <div
-        className={`relative w-full h-full transition-transform duration-500 will-change-transform [transform-style:preserve-3d] ${
+        className={`absolute inset-0 transition-transform duration-500 will-change-transform [transform-style:preserve-3d] ${
           showFace ? "[transform:rotateY(180deg)]" : ""
         }`}
       >
